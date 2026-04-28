@@ -25,5 +25,9 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 ---
 
 ## Mecânica
-
+tã
+- [ ]  Inserir abertura para carregamento
+- [ ]  Inserir chave On/Off
+- [ ]  Conversar com o professor responsável pela impressão 3D
+- [ ]  
 
