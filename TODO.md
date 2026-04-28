@@ -26,9 +26,4 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 
 ## Mecânica
 
----
 
-## Decisões a serem alinhadas (Reunião)
-
-
----
