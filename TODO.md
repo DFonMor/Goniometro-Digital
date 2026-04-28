@@ -18,9 +18,17 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 
 ## Firmware / ESP32 (Dependências críticas)
 
+- [ ] Testar velocidade da comunicação bluetooth
+- [ ] Padronizar o envio de dados como dois bytes
+- [ ] Realizar leitura da entrada para selecionar entre início da coleta e final da coleta
+
 ---
 
 ## Eletrônica
+
+- [ ] Alterar comprimento dos cabos
+- [ ] Revisar as ligações
+- [ ] Fazer testes
 
 ---
 
@@ -28,6 +36,7 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 tã
 - [ ]  Inserir abertura para carregamento
 - [ ]  Inserir chave On/Off
+- [ ]  Impressão teste
 - [ ]  Conversar com o professor responsável pela impressão 3D
-- [ ]  
+- [ ]  Verificar folgas
 
