@@ -7,18 +7,19 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 
 ## Front-End (Responsável: Front-End)
 
-- [ ] Criar estrutura inicial do app (React Native)
-- [ ] Implementar interface básica com dados simulados
-- [ ] Preparar tela para exibição em tempo real
-- [ ] Estruturar fluxo de salvamento de medições
-- [ ] Desenvolver visualização de histórico
+- [x] Criar estrutura inicial do app (React Native)
+- [x] Implementar interface básica com dados simulados
+- [x] Preparar tela para exibição em tempo real
+- [~] Estruturar fluxo de salvamento de medições
+- [ ] Implementar persistência local
+- [x] Desenvolver visualização de histórico
 - [ ] Integrar comunicação BLE (dependente do firmware)
 
 ---
 
 ## Firmware / ESP32 (Dependências críticas)
 
-- [ ] Testar velocidade da comunicação bluetooth
+- [~] Testar velocidade da comunicação bluetooth
 - [x] Padronizar o envio de dados como dois bytes
 - [x] Realizar leitura da entrada para selecionar entre início da coleta e final da coleta
 - [ ] Mudar de Bluetooth SPP para Bluetooth BLE
@@ -35,15 +36,15 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 
 - [ ] Alterar comprimento dos cabos
 - [ ] Revisar as ligações
-- [ ] Fazer testes
+- [~] Fazer testes
 
 ---
 
 ## Mecânica
-tã
-- [ ]  Inserir abertura para carregamento
-- [ ]  Inserir chave On/Off
-- [ ]  Impressão teste
-- [ ]  Conversar com o professor responsável pela impressão 3D
+
+- [x]  Inserir abertura para carregamento
+- [x]  Inserir chave On/Off
+- [x]  Impressão teste
+- [-]  Conversar com o professor responsável pela impressão 3D
 - [ ]  Verificar folgas
 
