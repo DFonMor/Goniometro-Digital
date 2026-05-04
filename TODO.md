@@ -19,8 +19,15 @@ Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabil
 ## Firmware / ESP32 (Dependências críticas)
 
 - [ ] Testar velocidade da comunicação bluetooth
-- [ ] Padronizar o envio de dados como dois bytes
-- [ ] Realizar leitura da entrada para selecionar entre início da coleta e final da coleta
+- [x] Padronizar o envio de dados como dois bytes
+- [x] Realizar leitura da entrada para selecionar entre início da coleta e final da coleta
+- [ ] Mudar de Bluetooth SPP para Bluetooth BLE
+        Veja sobre: #include <BLEDevice.h>
+                    #include <BLEServer.h>
+                    #include <BLEUtils.h>
+                    #include <BLE2902.h>
+- [ ] Verificar a conversão (é 5V mesmo ou 3.3V?)
+- [ ] Adicionar byte de sincronização
 
 ---
 
