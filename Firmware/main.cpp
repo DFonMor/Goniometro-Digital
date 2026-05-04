@@ -97,9 +97,9 @@ void enviarLeituraADC() {
   uint16_t valor = (uint16_t)(tensao * 100.0);
 
   uint8_t byteAlto = (valor >> 8) & 0xFF;
-    uint8_t byteBaixo = valor & 0xFF;
+  uint8_t byteBaixo = valor & 0xFF;
   
-    SerialBT.write(byteAlto);
+  SerialBT.write(byteAlto);
   SerialBT.write(byteBaixo);
 
 }
