@@ -33,8 +33,8 @@
 ## Eletrônica
 
 - [ ] Alterar comprimento dos cabos
-- [ ] Revisar as ligações
-- [ ] Fazer testes
+- [x] Revisar as ligações
+- [x] Fazer testes
 
 ---
 
