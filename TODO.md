@@ -19,14 +19,9 @@
 - [ ] Testar velocidade da comunicação bluetooth
 - [x] Padronizar o envio de dados como dois bytes
 - [x] Realizar leitura da entrada para selecionar entre início da coleta e final da coleta
-- [ ] Mudar de Bluetooth SPP para Bluetooth BLE
-        Veja sobre: #include <BLEDevice.h>
-                    #include <BLEServer.h>
-                    #include <BLEUtils.h>
-                    #include <BLE2902.h>
+- [ ] Mudar de Bluetooth SPP para Bluetooth BLE (veja sobre: BLEDevice.h, BLEServer.h, BLEUtils.h e BLE2902.h.)
 - [ ] Verificar a conversão (é 5V mesmo ou 3.3V?)
-- [ ] Adicionar byte de sincronização
-        Seria adicionar um header tipo SerialBT.write(0xAA), pois o app não sabe se perdeu o byte
+- [ ] Adicionar byte de sincronização (seria adicionar um header tipo SerialBT.write(0xAA), pois o app não sabe se perdeu o byte)
 
 ---
 
