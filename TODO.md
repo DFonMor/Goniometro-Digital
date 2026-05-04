@@ -10,6 +10,7 @@
 - [ ] Implementar persistência local
 - [x] Desenvolver visualização de histórico
 - [ ] Integrar comunicação BLE (dependente do firmware)
+- [ ] Implementar calibração de referência (definição de 0°)
 
 ---
 
@@ -25,6 +26,7 @@
                     #include <BLE2902.h>
 - [ ] Verificar a conversão (é 5V mesmo ou 3.3V?)
 - [ ] Adicionar byte de sincronização
+        Seria adicionar um header tipo SerialBT.write(0xAA), pois o app não sabe se perdeu o byte
 
 ---
 
@@ -41,6 +43,8 @@
 - [x]  Inserir abertura para carregamento
 - [x]  Inserir chave On/Off
 - [x]  Impressão teste
-- [ ]  Conversar com o professor responsável pela impressão 3D
 - [ ]  Verificar folgas
+- [ ]  Terminar modelagem da fixação do sensor ao manguito
+- [ ]  Terminar desenvolvimento da alça de fixação
+
 
