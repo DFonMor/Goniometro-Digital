@@ -1,8 +1,4 @@
-# TODO - Integração do Sistema
-
-## Objetivo imediato
-Definir a interface de comunicação entre ESP32 e aplicativo mobile para viabilizar o desenvolvimento do front-end.
-
+# TODO 
 ---
 
 ## Front-End (Responsável: Front-End)
