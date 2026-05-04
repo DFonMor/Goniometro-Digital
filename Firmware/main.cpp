@@ -4,6 +4,9 @@ BluetoothSerial SerialBT;
 
 #define ADC_PIN 34
 
+#define START 0x00
+#define STOP 0x01
+
 const char *BT_NAME = "ESP32_ADC";
 const char *BT_PIN  = "1234";
 
@@ -39,20 +42,50 @@ void verificarComandoBluetooth() {
   while (SerialBT.available() >= 3) {
     uint8_t b1 = SerialBT.read();
     uint8_t b2 = SerialBT.read();
-    uint8_t cmd = SerialBT.read();
+    uint8_t len = SerialBT.read();
+    uint8_t *cmd;
+    uint8_t sum = 0;
+
+    cmd = (uint8_t*)malloc(len);
+    
+    SerialBT.readBytes((char*)&cmd, len);
 
     uint16_t flag = ((uint16_t)b1 << 8) | b2;
 
-    if (flag == START_FLAG) {
-      if (cmd == 0x00) {
-        coletando = true;
-        Serial.println("Coleta iniciada");
-      } 
-      else if (cmd == 0x01) {
-        coletando = false;
-        Serial.println("Coleta parada");
-      }
+    if (flag != START_FLAG) {
+      return 1;
+      // if (cmd == 0x00) {
+      //   coletando = true;
+      //   Serial.println("Coleta iniciada");
+      // } 
+      // else if (cmd == 0x01) {
+      //   coletando = false;
+      //   Serial.println("Coleta parada");
+      // }
     }
+
+    sum = b1 + b2 + len;
+
+    for (int i= 0; i < (len -1); ++i)
+      sum += cmd[i]
+
+    if (sum != cmd[len - 1])
+      return 1;
+
+
+    switch (cmd[0])
+    {
+    case START:
+      coletando = true;
+      free(cmd)
+      break;
+    case STOP:
+      coletando = false;
+      free(cmd)
+      break;
+    }
+
+
   }
 }
 
@@ -69,10 +102,4 @@ void enviarLeituraADC() {
     SerialBT.write(byteAlto);
   SerialBT.write(byteBaixo);
 
-  // Serial.print("ADC: ");
-  // Serial.print(adcRaw);
-  // Serial.print(" | V: ");
-  // Serial.print(tensao);
-  // Serial.print(" | Enviado: ");
-  // Serial.println(valor);
 }
