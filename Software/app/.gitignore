@@ -41,3 +41,16 @@ app-example
 # generated native folders
 /ios
 /android
+
+# other
+.vscode/
+
+# Sistema Windows
+Thumbs.db
+
+# Logs genéricos
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp
