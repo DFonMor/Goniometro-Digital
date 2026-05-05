@@ -27,7 +27,7 @@ void setup() {
   analogSetPinAttenuation(ADC_PIN, ADC_11db);
 
   SerialBT.begin(BT_NAME);
-  SerialBT.setPin(BT_PIN);
+  // SerialBT.setPin(BT_PIN);
 
   Serial.println("Bluetooth iniciado");
 }
@@ -43,6 +43,7 @@ void loop() {
 
 void verificarComandoBluetooth() {
   while (SerialBT.available() >= 3) {
+    Serial.println("recebeu mensagem");
     uint8_t b1 = SerialBT.read();
     uint8_t b2 = SerialBT.read();
     uint8_t len = SerialBT.read();
@@ -51,20 +52,13 @@ void verificarComandoBluetooth() {
 
     cmd = (uint8_t*)malloc(len);
     
-    SerialBT.readBytes((char*)&cmd, len);
+    SerialBT.readBytes(cmd, len);
 
     uint16_t flag = ((uint16_t)b1 << 8) | b2;
 
     if (flag != START_FLAG) {
+      Serial.println("Flag errada");
       return ;
-      // if (cmd == 0x00) {
-      //   coletando = true;
-      //   Serial.println("Coleta iniciada");
-      // } 
-      // else if (cmd == 0x01) {
-      //   coletando = false;
-      //   Serial.println("Coleta parada");
-      // }
     }
 
     sum = b1 + b2 + len;
@@ -72,18 +66,22 @@ void verificarComandoBluetooth() {
     for (int i= 0; i < (len -1); ++i)
       sum += cmd[i];
 
-    if (sum != cmd[len - 1])
+    if (sum != cmd[len - 1]){
+      Serial.println("sum errado");
       return;
+    }
 
-
+    Serial.println("verificando comando");
     switch (cmd[0])
     {
     case START:
       coletando = true;
+      Serial.println("START");
       free(cmd);
       break;
     case STOP:
       coletando = false;
+      Serial.println("STOP");
       free(cmd);
       break;
     }
