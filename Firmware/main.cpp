@@ -14,6 +14,9 @@ const uint16_t START_FLAG = 0xB10A;
 
 bool coletando = false;
 
+void enviarLeituraADC();
+void verificarComandoBluetooth();
+
 void setup() {
   Serial.begin(115200);
 
@@ -53,7 +56,7 @@ void verificarComandoBluetooth() {
     uint16_t flag = ((uint16_t)b1 << 8) | b2;
 
     if (flag != START_FLAG) {
-      return 1;
+      return ;
       // if (cmd == 0x00) {
       //   coletando = true;
       //   Serial.println("Coleta iniciada");
@@ -67,21 +70,21 @@ void verificarComandoBluetooth() {
     sum = b1 + b2 + len;
 
     for (int i= 0; i < (len -1); ++i)
-      sum += cmd[i]
+      sum += cmd[i];
 
     if (sum != cmd[len - 1])
-      return 1;
+      return;
 
 
     switch (cmd[0])
     {
     case START:
       coletando = true;
-      free(cmd)
+      free(cmd);
       break;
     case STOP:
       coletando = false;
-      free(cmd)
+      free(cmd);
       break;
     }
 
