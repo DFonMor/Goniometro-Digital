@@ -1,4 +1,4 @@
-// App.js - Versão Completa Atualizada (COM CORREÇÃO BLE)
+// App.js - Versão com Mock BLE (para testes sem hardware)
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,10 +7,10 @@ import {
   StyleSheet,
   FlatList,
   Alert,
-  TouchableOpacity
+  TouchableOpacity,
+  Switch
 } from 'react-native';
 
-import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 
 // IMPORTAÇÕES DOS SCRIPTS
@@ -36,7 +36,19 @@ import {
 } from './src/services/StorageService';
 import CalibrationModal from './src/components/CalibrationModal';
 
-const manager = new BleManager();
+// 🔧 NOVA IMPORT: Serviço de mock
+import { MockBLEService } from './src/services/MockBLEService';
+
+// Flag para usar mock ou BLE real
+const USE_MOCK = true; // 👈 Mude para false para usar BLE real
+
+let manager = null;
+
+// Só importa o BLE real se não estiver usando mock
+if (!USE_MOCK) {
+  const { BleManager } = require('react-native-ble-plx');
+  manager = new BleManager();
+}
 
 export default function App() {
 
@@ -54,12 +66,20 @@ export default function App() {
   const [pacienteAtual, setPacienteAtual] = useState(null);
   const [modalCalibracaoVisible, setModalCalibracaoVisible] = useState(false);
   const [tensaoAtual, setTensaoAtual] = useState(0);
+  const [modoMock, setModoMock] = useState(USE_MOCK); // Estado para controle UI
 
   const deviceRef = useRef(null);
 
   // ===== CARREGAR DADOS AO INICIAR =====
   useEffect(() => {
     carregarDadosIniciais();
+    
+    // Cleanup ao desmontar
+    return () => {
+      if (modoMock && MockBLEService.estaSimulando()) {
+        MockBLEService.pararSimulacao();
+      }
+    };
   }, []);
 
   async function carregarDadosIniciais() {
@@ -78,14 +98,11 @@ export default function App() {
     
     setPacienteAtual(paciente);
     
-    // Carregar histórico do paciente
     const medicoes = await carregarMedicoes(id);
     setHistorico(medicoes);
     
-    // Carregar calibração do paciente
     const calibracao = await carregarCalibracao(id);
     if (calibracao) {
-      // A calibração será aplicada no ConversionService depois
       console.log(`Calibração carregada: 0° = ${calibracao.tensaoZero}V`);
     }
   }
@@ -124,7 +141,7 @@ export default function App() {
     );
   }
 
-  // ===== FUNÇÃO PROCESSAR PACOTE =====
+  // ===== FUNÇÃO PROCESSAR PACOTE (mesma para mock e BLE real) =====
   function processarPacote(base64Value) {
     const result = parsePacket(base64Value, converterTensaoParaAngulo);
     
@@ -151,8 +168,52 @@ export default function App() {
     }
   }
 
-  // ===== FUNÇÕES BLE (COM CORREÇÕES) =====
-  async function iniciarBLE() {
+  // ===== FUNÇÕES DE CONEXÃO (MOCK) =====
+  async function iniciarBLE_Mock() {
+    setConectando(true);
+    console.log("🔵 Mock: Iniciando simulação do Goniômetro...");
+    
+    // Pequeno delay para simular conexão
+    setTimeout(() => {
+      // Inicia simulação
+      MockBLEService.iniciarSimulacao((dados) => {
+        processarPacote(dados.value);
+      });
+      
+      setConectado(true);
+      setConectando(false);
+      console.log("✅ Mock: Conectado ao Goniômetro (simulado)");
+      
+      // Simula envio de START
+      MockBLEService.enviarStart();
+    }, 1500);
+  }
+
+  async function desconectarBLE_Mock() {
+    console.log("🔴 Mock: Desconectando...");
+    MockBLEService.pararSimulacao();
+    setConectado(false);
+    setAngulo("0.00");
+    setTensao("0.00");
+    console.log("✅ Mock: Desconectado");
+  }
+
+  async function enviarCalibracaoBLE_Mock() {
+    if (!conectado) {
+      Alert.alert('Erro', 'Dispositivo não conectado');
+      return;
+    }
+    console.log("📤 Mock: Comando de calibração enviado");
+    await MockBLEService.enviarCalibracao();
+  }
+
+  // ===== FUNÇÕES DE CONEXÃO (BLE REAL) =====
+  async function iniciarBLE_Real() {
+    if (!manager) {
+      Alert.alert('Erro', 'BLE Manager não inicializado');
+      return;
+    }
+    
     setConectando(true);
     console.log("Procurando Goniômetro Digital...");
 
@@ -163,12 +224,10 @@ export default function App() {
         return;
       }
 
-      console.log("Dispositivo encontrado:", device?.name); // 👈 LOG ADICIONADO
-
       if (device?.name === DEVICE_NAME) {
-        console.log("Match! Dispositivo alvo encontrado"); // 👈 LOG ADICIONADO
+        console.log("Dispositivo encontrado!");
         manager.stopDeviceScan();
-        await conectar(device);
+        await conectar_Real(device);
       }
     });
 
@@ -181,23 +240,16 @@ export default function App() {
     }, 10000);
   }
 
-  async function conectar(device) {
+  async function conectar_Real(device) {
     try {
-      // 🔧 CORREÇÃO 1: Cancela qualquer conexão pendente
       await device.cancelConnection();
-      await new Promise(resolve => setTimeout(resolve, 500)); // pequena pausa
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 🔧 CORREÇÃO 2: Aumenta o timeout de conexão
-      const connectedDevice = await device.connect({
-        timeout: 15000, // 15 segundos
-      });
+      const connectedDevice = await device.connect({ timeout: 15000 });
       
-      console.log("Conectado ao Goniômetro");
-      
-      // 🔧 CORREÇÃO 3: Verifica se realmente conectou
       const isConnected = await connectedDevice.isConnected();
       if (!isConnected) {
-        throw new Error("Dispositivo desconectou imediatamente após conexão");
+        throw new Error("Dispositivo desconectou imediatamente");
       }
       
       deviceRef.current = connectedDevice;
@@ -205,7 +257,7 @@ export default function App() {
       setConectando(false);
 
       await connectedDevice.discoverAllServicesAndCharacteristics();
-      await enviarStart(connectedDevice);
+      await enviarStart_Real(connectedDevice);
 
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
@@ -228,9 +280,9 @@ export default function App() {
     }
   }
 
-  async function desconectarBLE() {
+  async function desconectarBLE_Real() {
     if (deviceRef.current) {
-      await enviarStop(deviceRef.current);
+      await enviarStop_Real(deviceRef.current);
       await deviceRef.current.cancelConnection();
       deviceRef.current = null;
       setConectado(false);
@@ -238,7 +290,7 @@ export default function App() {
     }
   }
 
-  async function enviarStart(device) {
+  async function enviarStart_Real(device) {
     try {
       const bytes = Uint8Array.from(START_PACKET);
       const base64 = Buffer.from(bytes).toString('base64');
@@ -253,7 +305,7 @@ export default function App() {
     }
   }
 
-  async function enviarStop(device) {
+  async function enviarStop_Real(device) {
     try {
       const bytes = Uint8Array.from(STOP_PACKET);
       const base64 = Buffer.from(bytes).toString('base64');
@@ -268,7 +320,7 @@ export default function App() {
     }
   }
 
-  async function enviarCalibracaoBLE() {
+  async function enviarCalibracaoBLE_Real() {
     if (!deviceRef.current || !conectado) {
       Alert.alert('Erro', 'Dispositivo não conectado');
       return;
@@ -285,6 +337,31 @@ export default function App() {
       console.log("Comando de calibração enviado ao ESP32");
     } catch (err) {
       console.log("Erro na calibração BLE:", err);
+    }
+  }
+
+  // ===== FUNÇÕES GENÉRICAS (chamam mock ou real) =====
+  function iniciarBLE() {
+    if (modoMock) {
+      iniciarBLE_Mock();
+    } else {
+      iniciarBLE_Real();
+    }
+  }
+
+  function desconectarBLE() {
+    if (modoMock) {
+      desconectarBLE_Mock();
+    } else {
+      desconectarBLE_Real();
+    }
+  }
+
+  function enviarCalibracaoBLE() {
+    if (modoMock) {
+      enviarCalibracaoBLE_Mock();
+    } else {
+      enviarCalibracaoBLE_Real();
     }
   }
 
@@ -348,6 +425,18 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.titulo}>Goniômetro Digital</Text>
 
+      {/* Indicador de modo Mock */}
+      <View style={styles.mockIndicator}>
+        <Text style={styles.mockText}>
+          🧪 MODO {modoMock ? 'SIMULAÇÃO' : 'BLE REAL'}
+        </Text>
+        {!modoMock && (
+          <Text style={styles.mockWarning}>
+            (requer ESP32 conectado)
+          </Text>
+        )}
+      </View>
+
       {/* Status BLE */}
       <Text style={styles.status}>
         BLE: {conectado ? "🟢 Conectado" : conectando ? "🟡 Conectando" : "🔴 Desconectado"}
@@ -369,7 +458,6 @@ export default function App() {
           </TouchableOpacity>
         </View>
         
-        {/* Lista de pacientes existentes */}
         {pacientes.length > 0 && (
           <FlatList
             horizontal
@@ -471,6 +559,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 20,
     color: '#2c3e50'
+  },
+  mockIndicator: {
+    backgroundColor: '#f39c12',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center'
+  },
+  mockText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff'
+  },
+  mockWarning: {
+    fontSize: 10,
+    color: '#fff',
+    marginTop: 2
   },
   status: {
     fontSize: 16,
