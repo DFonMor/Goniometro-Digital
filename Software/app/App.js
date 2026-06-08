@@ -41,7 +41,7 @@ import { MockBLEService } from './src/services/MockBLEService';
 import NovoPacienteModal from './src/components/NovoPacienteModal';
 
 // Flag para usar mock ou BLE real
-const USE_MOCK = false; // 👈 Mude para false para usar BLE real
+const USE_MOCK = false; //  Mude para false para usar BLE real
 
 let manager = null;
 
