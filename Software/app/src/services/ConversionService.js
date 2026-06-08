@@ -1,6 +1,6 @@
 // src/services/ConversionService.js
 
-const TENSAO_MAX = 3.3;
+const TENSAO_MAX = 1.1;
 const ANGULO_MAX = 180;
 
 // Instância única (singleton)
