@@ -143,7 +143,7 @@ export default function App() {
 
   // ===== FUNÇÃO PROCESSAR PACOTE (mesma para mock e BLE real) =====
   function processarPacote(base64Value) {
-    const result = parsePacket(base64Value, converterTensaoParaAngulo);
+    const result = parsePacket(base64Value);
     
     if (!result.success) {
       if (result.error === 'incomplete' || result.error === 'invalid_checksum') {

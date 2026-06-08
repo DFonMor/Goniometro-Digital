@@ -1,10 +1,18 @@
 // src/services/ConversionService.js
+
 const TENSAO_MAX = 3.3;
 const ANGULO_MAX = 180;
 
+// Instância única (singleton)
+let instance = null;
+
 class ConversionService {
   constructor() {
+    if (instance) {
+      return instance;
+    }
     this.tensaoZero = 0;
+    instance = this;
   }
 
   setCalibrationZero(tensao) {
@@ -39,9 +47,13 @@ class ConversionService {
   }
 }
 
-export default new ConversionService();
+// Cria a instância única
+const conversionService = new ConversionService();
 
-// Função auxiliar para compatibilidade
+// Exporta a instância como default
+export default conversionService;
+
+// 🔧 Exporta a função diretamente (sem depender da instância)
 export function converterTensaoParaAngulo(tensao) {
-  return ConversionService.converterTensaoParaAngulo(tensao);
+  return conversionService.converterTensaoParaAngulo(tensao);
 }
