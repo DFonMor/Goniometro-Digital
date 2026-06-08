@@ -513,16 +513,13 @@ export default function App() {
       <Text style={styles.titulo}>Goniômetro Digital</Text>
 
       {/* Indicador de modo Mock */}
-      <View style={styles.mockIndicator}>
-        <Text style={styles.mockText}>
-          🧪 MODO {modoMock ? 'SIMULAÇÃO' : 'BLE REAL'}
-        </Text>
-        {!modoMock && (
-          <Text style={styles.mockWarning}>
-            (requer ESP32 conectado)
+      {modoMock && (
+        <View style={styles.mockIndicator}>
+          <Text style={styles.mockText}>
+            🧪 MODO SIMULAÇÃO
           </Text>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Status BLE */}
       <Text style={styles.status}>
