@@ -1,7 +1,12 @@
 // src/utils/packetParser.js
 import { Buffer } from 'buffer';
 import { validateChecksum } from './checksumValidator';
-import { converterTensaoParaAngulo } from '../services/ConversionService';
+import ConversionService from '../services/ConversionService'; 
+
+// Função de conversão interna
+function converterTensaoParaAngulo(tensao) {
+  return ConversionService.converterTensaoParaAngulo(tensao);
+}
 
 export function parsePacket(base64Value, converterFn = converterTensaoParaAngulo) {
   const buffer = Buffer.from(base64Value, 'base64');
