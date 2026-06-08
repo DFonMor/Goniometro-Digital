@@ -3,7 +3,7 @@
 // BLE
 export const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 export const CHARACTERISTIC_UUID = "abcd1234-5678-90ab-cdef-1234567890ab";
-export const DEVICE_NAME = "Goniometro_Digital";
+export const DEVICE_NAME = "ESP32_ADC";
 
 // Conversão
 export const TENSAO_MAX = 3.3;

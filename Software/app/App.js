@@ -1,4 +1,4 @@
-// App.js - Versão Completa Atualizada
+// App.js - Versão Completa Atualizada (COM CORREÇÃO BLE)
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -151,20 +151,22 @@ export default function App() {
     }
   }
 
-  // ===== FUNÇÕES BLE =====
+  // ===== FUNÇÕES BLE (COM CORREÇÕES) =====
   async function iniciarBLE() {
     setConectando(true);
     console.log("Procurando Goniômetro Digital...");
 
     manager.startDeviceScan(null, null, async (error, device) => {
       if (error) {
-        console.log(error);
+        console.log("Erro no scan:", error);
         setConectando(false);
         return;
       }
 
+      console.log("Dispositivo encontrado:", device?.name); // 👈 LOG ADICIONADO
+
       if (device?.name === DEVICE_NAME) {
-        console.log("Dispositivo encontrado!");
+        console.log("Match! Dispositivo alvo encontrado"); // 👈 LOG ADICIONADO
         manager.stopDeviceScan();
         await conectar(device);
       }
@@ -181,10 +183,24 @@ export default function App() {
 
   async function conectar(device) {
     try {
-      const connectedDevice = await device.connect();
-      deviceRef.current = connectedDevice;
+      // 🔧 CORREÇÃO 1: Cancela qualquer conexão pendente
+      await device.cancelConnection();
+      await new Promise(resolve => setTimeout(resolve, 500)); // pequena pausa
+      
+      // 🔧 CORREÇÃO 2: Aumenta o timeout de conexão
+      const connectedDevice = await device.connect({
+        timeout: 15000, // 15 segundos
+      });
       
       console.log("Conectado ao Goniômetro");
+      
+      // 🔧 CORREÇÃO 3: Verifica se realmente conectou
+      const isConnected = await connectedDevice.isConnected();
+      if (!isConnected) {
+        throw new Error("Dispositivo desconectou imediatamente após conexão");
+      }
+      
+      deviceRef.current = connectedDevice;
       setConectado(true);
       setConectando(false);
 
