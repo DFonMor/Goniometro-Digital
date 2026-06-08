@@ -69,6 +69,8 @@ export default function App() {
   const [tensaoAtual, setTensaoAtual] = useState(0);
   const [modoMock, setModoMock] = useState(USE_MOCK); // Estado para controle UI
   const [modalNovoPacienteVisible, setModalNovoPacienteVisible] = useState(false);
+  const [conectandoDispositivo, setConectandoDispositivo] = useState(false);
+  const [dispositivoEncontrado, setDispositivoEncontrado] = useState(false);
 
   const deviceRef = useRef(null);
 
@@ -218,19 +220,51 @@ export default function App() {
     }
     
     setConectando(true);
+    setConectandoDispositivo(false); // Reset
+    setDispositivoEncontrado(false);
+    
     console.log("Procurando Goniômetro Digital...");
+
+    // Para o scan anterior se existir
+    manager.stopDeviceScan();
 
     manager.startDeviceScan(null, null, async (error, device) => {
       if (error) {
         console.log("Erro no scan:", error);
-        setConectando(false);
         return;
       }
 
-      if (device?.name === DEVICE_NAME) {
-        console.log("Dispositivo encontrado!");
+      // Ignora se já estamos conectando a um dispositivo
+      if (conectandoDispositivo || dispositivoEncontrado) {
+        console.log("Ignorando - já conectando/encontrado");
+        return;
+      }
+
+      // Ignora dispositivos sem nome
+      if (!device?.name) {
+        console.log("Dispositivo sem nome ignorado");
+        return;
+      }
+
+      console.log("Dispositivo encontrado:", device.name);
+
+      if (device.name === DEVICE_NAME) {
+        console.log("Match! Dispositivo alvo encontrado");
+        
+        // Marca que já encontramos e estamos conectando
+        setDispositivoEncontrado(true);
+        setConectandoDispositivo(true);
+        
+        // Para o scan IMEDIATAMENTE
         manager.stopDeviceScan();
+        
+        // Aguarda um pouco antes de tentar conectar
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await conectar_Real(device);
+        
+        // Libera os flags após tentativa
+        setConectandoDispositivo(false);
       }
     });
 
@@ -238,18 +272,32 @@ export default function App() {
       if (!conectado && conectando) {
         manager.stopDeviceScan();
         setConectando(false);
+        setConectandoDispositivo(false);
+        setDispositivoEncontrado(false);
         Alert.alert('Erro', 'Dispositivo não encontrado. Verifique o BLE.');
       }
-    }, 10000);
+    }, 15000);
   }
 
   async function conectar_Real(device) {
     try {
-      await device.cancelConnection();
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const deviceId = device.id;
+      console.log(`Tentando conectar ao dispositivo: ${deviceId}`);
+      
+      // Garante que não há conexão pendente
+      try {
+        await device.cancelConnection();
+      } catch (e) {
+        // Ignora erro se não estava conectado
+        console.log("Sem conexão ativa para cancelar");
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const connectedDevice = await device.connect({ timeout: 15000 });
+      console.log("Conexão estabelecida com sucesso!");
       
+      // Verifica conexão
       const isConnected = await connectedDevice.isConnected();
       if (!isConnected) {
         throw new Error("Dispositivo desconectou imediatamente");
@@ -258,10 +306,19 @@ export default function App() {
       deviceRef.current = connectedDevice;
       setConectado(true);
       setConectando(false);
-
+      setConectandoDispositivo(false);
+      
+      console.log("Conectado ao Goniômetro!");
+      
+      // Aguarda um pouco antes de descobrir serviços
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       await connectedDevice.discoverAllServicesAndCharacteristics();
+      console.log("Serviços descobertos");
+      
       await enviarStart_Real(connectedDevice);
 
+      // Monitora características
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
         CHARACTERISTIC_UUID,
@@ -277,9 +334,11 @@ export default function App() {
       );
 
     } catch (err) {
-      console.log("Erro na conexão:", err);
+      console.log("Erro detalhado na conexão:", err);
       setConectando(false);
-      Alert.alert("Erro BLE", "Não foi possível conectar ao dispositivo.");
+      setConectandoDispositivo(false);
+      setDispositivoEncontrado(false);
+      Alert.alert("Erro BLE", `Erro: ${err.message || "Não foi possível conectar"}`);
     }
   }
 
