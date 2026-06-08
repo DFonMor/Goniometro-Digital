@@ -36,8 +36,9 @@ import {
 } from './src/services/StorageService';
 import CalibrationModal from './src/components/CalibrationModal';
 
-// 🔧 NOVA IMPORT: Serviço de mock
 import { MockBLEService } from './src/services/MockBLEService';
+
+import NovoPacienteModal from './src/components/NovoPacienteModal';
 
 // Flag para usar mock ou BLE real
 const USE_MOCK = true; // 👈 Mude para false para usar BLE real
@@ -67,6 +68,7 @@ export default function App() {
   const [modalCalibracaoVisible, setModalCalibracaoVisible] = useState(false);
   const [tensaoAtual, setTensaoAtual] = useState(0);
   const [modoMock, setModoMock] = useState(USE_MOCK); // Estado para controle UI
+  const [modalNovoPacienteVisible, setModalNovoPacienteVisible] = useState(false);
 
   const deviceRef = useRef(null);
 
@@ -112,6 +114,7 @@ export default function App() {
     setPacientes([...pacientes, novoPaciente]);
     await selecionarPaciente(novoPaciente.id);
     Alert.alert('Sucesso', `Paciente ${nome} criado!`);
+    setModalNovoPacienteVisible(false); // Fecha o modal
   }
 
   async function excluirPaciente(id) {
@@ -408,17 +411,9 @@ export default function App() {
   }
 
   // ===== NOVO PACIENTE =====
-  function promptNovoPaciente() {
-    Alert.prompt(
-      'Novo Paciente',
-      'Digite o nome do paciente:',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Criar', onPress: (nome) => nome && criarNovoPaciente(nome) }
-      ],
-      'plain-text'
-    );
-  }
+function promptNovoPaciente() {
+  setModalNovoPacienteVisible(true);
+}
 
   // ===== RENDER =====
   return (
@@ -542,6 +537,12 @@ export default function App() {
         onConfirm={confirmarCalibracao}
         onCancel={cancelarCalibracao}
         tensaoAtual={tensaoAtual.toFixed(3)}
+      />
+      {/* NOVO: Modal de Novo Paciente */}
+      <NovoPacienteModal
+        visible={modalNovoPacienteVisible}
+        onConfirm={criarNovoPaciente}
+        onCancel={() => setModalNovoPacienteVisible(false)}
       />
     </View>
   );
