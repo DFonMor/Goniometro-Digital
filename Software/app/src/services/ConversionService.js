@@ -40,3 +40,8 @@ class ConversionService {
 }
 
 export default new ConversionService();
+
+// Função auxiliar para compatibilidade
+export function converterTensaoParaAngulo(tensao) {
+  return ConversionService.converterTensaoParaAngulo(tensao);
+}
