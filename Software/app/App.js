@@ -23,7 +23,7 @@ import {
   CALIBRATE_PACKET
 } from './src/utils/constants';
 import { parsePacket } from './src/utils/packetParser';
-import { converterTensaoParaAngulo } from './src/services/ConversionService';
+import ConversionService from './src/services/ConversionService';
 import {
   carregarPacientes,
   criarPaciente,
@@ -106,7 +106,10 @@ export default function App() {
     
     const calibracao = await carregarCalibracao(id);
     if (calibracao) {
+      ConversionService.setCalibrationZero(calibracao.tensaoZero);
       console.log(`Calibração carregada: 0° = ${calibracao.tensaoZero}V`);
+    } else {
+      ConversionService.resetCalibration();
     }
   }
 
@@ -473,6 +476,7 @@ export default function App() {
     if (!pacienteAtual) return;
     
     await salvarCalibracao(pacienteAtual.id, tensaoAtual);
+    ConversionService.setCalibrationZero(tensaoAtual);
     setModalCalibracaoVisible(false);
     Alert.alert('Sucesso', `Calibração definida: 0° = ${tensaoAtual.toFixed(3)}V`);
   }
