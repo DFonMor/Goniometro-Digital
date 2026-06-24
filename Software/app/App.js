@@ -44,6 +44,7 @@ import NovoPacienteModal from './src/components/NovoPacienteModal';
 const USE_MOCK = false; // Mude para true para testes sem hardware
 
 let manager = null;
+const TAMANHO_FILTRO_MEDIANA = 5;
 
 // Só importa o BLE real se não estiver usando mock
 if (!USE_MOCK) {
@@ -73,6 +74,32 @@ export default function App() {
   const [dispositivoEncontrado, setDispositivoEncontrado] = useState(false);
 
   const deviceRef = useRef(null);
+  const leiturasBufferRef = useRef([]);
+
+  function calcularMediana(valores) {
+    const ordenados = [...valores].sort((a, b) => a - b);
+    const meio = Math.floor(ordenados.length / 2);
+
+    if (ordenados.length % 2 === 0) {
+      return (ordenados[meio - 1] + ordenados[meio]) / 2;
+    }
+
+    return ordenados[meio];
+  }
+
+  function filtrarTensaoPorMediana(tensaoRecebida) {
+    leiturasBufferRef.current.push(tensaoRecebida);
+
+    if (leiturasBufferRef.current.length > TAMANHO_FILTRO_MEDIANA) {
+      leiturasBufferRef.current.shift();
+    }
+
+    return calcularMediana(leiturasBufferRef.current);
+  }
+
+  function limparFiltroMediana() {
+    leiturasBufferRef.current = [];
+  }
 
   // ===== CARREGAR DADOS AO INICIAR =====
   useEffect(() => {
@@ -167,9 +194,12 @@ export default function App() {
     }
     
     if (result.type === 'data') {
-      setTensao(result.tensao.toFixed(2));
-      setTensaoAtual(result.tensao);
-      setAngulo(result.angulo.toFixed(1));
+      const tensaoFiltrada = filtrarTensaoPorMediana(result.tensao);
+      const anguloFiltrado = ConversionService.converterTensaoParaAngulo(tensaoFiltrada);
+
+      setTensao(tensaoFiltrada.toFixed(2));
+      setTensaoAtual(tensaoFiltrada);
+      setAngulo(anguloFiltrado.toFixed(1));
       setUltimaLeitura(new Date().toLocaleTimeString());
       setPacotesPerdidos(0);
     }
@@ -209,6 +239,7 @@ export default function App() {
     console.log("🔴 Mock: Desconectando completamente...");
     await MockBLEService.enviarStop();
     MockBLEService.pararSimulacao();
+    limparFiltroMediana();
     setConectado(false);
     setAngulo("0.00");
     setTensao("0.00");
@@ -394,6 +425,7 @@ export default function App() {
       await enviarStopOnly_Real();
       await deviceRef.current.cancelConnection();
       deviceRef.current = null;
+      limparFiltroMediana();
       setConectado(false);
       setAngulo("0.00");
       setTensao("0.00");
