@@ -89,7 +89,7 @@ class ServerCallbacks : public BLEServerCallbacks {
     coletando = false;
     Serial.println("BLE desconectado");
 
-    BLEDevice::startAdvertising();
+    pServer->startAdvertising();
   }
 };
 
