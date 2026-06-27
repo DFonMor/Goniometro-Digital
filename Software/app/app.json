@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Goniômetro Digital (Simulador)",
-    "slug": "goniometro-digital-simu",
+    "name": "Goniômetro Digital",
+    "slug": "goniometro-digital",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
