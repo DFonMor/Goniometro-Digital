@@ -47,7 +47,7 @@ import PacienteFormModal from './src/components/PacienteFormModal';
 import HistoricoModal from './src/components/HistoricoModal'; // <-- NOVO
 
 // Flag para usar mock ou BLE real
-const USE_MOCK = true; // <-- AGORA true para testes
+const USE_MOCK = false; // <-- AGORA true para testes
 
 let manager = null;
 const TAMANHO_FILTRO_MEDIANA = 12;
