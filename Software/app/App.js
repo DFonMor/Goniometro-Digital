@@ -1,4 +1,4 @@
-// App.js - Versão Completa com BLE Real e Controles Separados
+// App.js - Versão Completa com BLE Real e Controles Separados + Picker + Perfil Expandido + Histórico Modal
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Switch
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 import { Buffer } from 'buffer';
 
@@ -20,7 +21,8 @@ import {
   DEVICE_NAME,
   START_PACKET,
   STOP_PACKET,
-  CALIBRATE_PACKET
+  CALIBRATE_PACKET,
+  MOVIMENTOS
 } from './src/utils/constants';
 import { parsePacket } from './src/utils/packetParser';
 import ConversionService from './src/services/ConversionService';
@@ -32,16 +34,20 @@ import {
   carregarMedicoes,
   salvarCalibracao,
   carregarCalibracao,
-  deletarCalibracao
+  deletarCalibracao,
+  atualizarPaciente,
+  atualizarMedicao,   // <-- NOVO: para editar anotação
+  deletarMedicao       // <-- NOVO: para excluir medição
 } from './src/services/StorageService';
 import CalibrationModal from './src/components/CalibrationModal';
 
 import { MockBLEService } from './src/services/MockBLEService';
 
-import NovoPacienteModal from './src/components/NovoPacienteModal';
+import PacienteFormModal from './src/components/PacienteFormModal';
+import HistoricoModal from './src/components/HistoricoModal'; // <-- NOVO
 
 // Flag para usar mock ou BLE real
-const USE_MOCK = false; // Mude para true para testes sem hardware
+const USE_MOCK = true; // <-- AGORA true para testes
 
 let manager = null;
 const TAMANHO_FILTRO_MEDIANA = 12;
@@ -69,9 +75,16 @@ export default function App() {
   const [modalCalibracaoVisible, setModalCalibracaoVisible] = useState(false);
   const [tensaoAtual, setTensaoAtual] = useState(0);
   const [modoMock, setModoMock] = useState(USE_MOCK);
-  const [modalNovoPacienteVisible, setModalNovoPacienteVisible] = useState(false);
   const [conectandoDispositivo, setConectandoDispositivo] = useState(false);
   const [dispositivoEncontrado, setDispositivoEncontrado] = useState(false);
+
+  // ===== ESTADOS DOS MODAIS =====
+  const [modalPacienteVisible, setModalPacienteVisible] = useState(false);
+  const [pacienteEditando, setPacienteEditando] = useState(null);
+  const [modalHistoricoVisible, setModalHistoricoVisible] = useState(false); // <-- NOVO
+
+  // ===== ESTADO PARA MOVIMENTO =====
+  const [movimento, setMovimento] = useState(MOVIMENTOS[0].value);
 
   const deviceRef = useRef(null);
   const leiturasBufferRef = useRef([]);
@@ -140,12 +153,48 @@ export default function App() {
     }
   }
 
+  // ===== FUNÇÕES DE PACIENTE =====
+  function abrirNovoPaciente() {
+    setPacienteEditando(null);
+    setModalPacienteVisible(true);
+  }
+
+  function abrirEdicaoPaciente() {
+    if (!pacienteAtual) {
+      Alert.alert('Aviso', 'Nenhum paciente selecionado');
+      return;
+    }
+    setPacienteEditando(pacienteAtual);
+    setModalPacienteVisible(true);
+  }
+
+  async function handleSalvarPaciente(dados, isEdit) {
+    if (isEdit && pacienteEditando) {
+      await atualizarPaciente(pacienteEditando.id, dados);
+      const pacientesAtualizados = await carregarPacientes();
+      setPacientes(pacientesAtualizados);
+      await selecionarPaciente(pacienteEditando.id);
+      Alert.alert('Sucesso', 'Paciente atualizado!');
+    } else {
+      const novoPaciente = await criarPaciente(dados.nome);
+      if (dados.dataNascimento || dados.sexo || dados.ladoAfetado || dados.diagnostico || dados.prontuario || dados.telefone) {
+        await atualizarPaciente(novoPaciente.id, dados);
+      }
+      const pacientesAtualizados = await carregarPacientes();
+      setPacientes(pacientesAtualizados);
+      await selecionarPaciente(novoPaciente.id);
+      Alert.alert('Sucesso', `Paciente ${dados.nome} criado!`);
+    }
+    setModalPacienteVisible(false);
+    setPacienteEditando(null);
+  }
+
   async function criarNovoPaciente(nome) {
     const novoPaciente = await criarPaciente(nome);
     setPacientes([...pacientes, novoPaciente]);
     await selecionarPaciente(novoPaciente.id);
     Alert.alert('Sucesso', `Paciente ${nome} criado!`);
-    setModalNovoPacienteVisible(false);
+    setModalPacienteVisible(false);
   }
 
   async function excluirPaciente(id) {
@@ -173,6 +222,22 @@ export default function App() {
         }
       ]
     );
+  }
+
+  // ===== FUNÇÕES DE HISTÓRICO (para o modal) =====
+  async function atualizarMedicaoHandler(medicaoId, novosDados) {
+    if (!pacienteAtual) return;
+    await atualizarMedicao(pacienteAtual.id, medicaoId, novosDados);
+    // Recarregar histórico
+    const medicoesAtualizadas = await carregarMedicoes(pacienteAtual.id);
+    setHistorico(medicoesAtualizadas);
+  }
+
+  async function deletarMedicaoHandler(medicaoId) {
+    if (!pacienteAtual) return;
+    await deletarMedicao(pacienteAtual.id, medicaoId);
+    const medicoesAtualizadas = await carregarMedicoes(pacienteAtual.id);
+    setHistorico(medicoesAtualizadas);
   }
 
   // ===== FUNÇÃO PROCESSAR PACOTE =====
@@ -205,7 +270,7 @@ export default function App() {
     }
   }
 
-  // ===== FUNÇÕES DE CONEXÃO (MOCK) =====
+  // ===== FUNÇÕES DE CONEXÃO (MOCK) - INALTERADAS =====
   async function iniciarBLE_Mock() {
     setConectando(true);
     console.log("🔵 Mock: Iniciando simulação do Goniômetro...");
@@ -256,7 +321,7 @@ export default function App() {
     await MockBLEService.enviarCalibracao();
   }
 
-  // ===== FUNÇÕES DE CONEXÃO (BLE REAL) =====
+  // ===== FUNÇÕES DE CONEXÃO (BLE REAL) - INALTERADAS =====
   async function iniciarBLE_Real() {
     if (!manager) {
       Alert.alert('Erro', 'BLE Manager não inicializado');
@@ -528,6 +593,7 @@ export default function App() {
       id: Date.now().toString(),
       angulo: angulo,
       tensao: tensao,
+      movimento: movimento,
       timestamp: new Date().toISOString(),
       dataHora: new Date().toLocaleString('pt-BR')
     };
@@ -536,11 +602,6 @@ export default function App() {
     setHistorico([novaMedicao, ...historico]);
     
     Alert.alert('Sucesso', 'Medição salva!');
-  }
-
-  // ===== NOVO PACIENTE =====
-  function promptNovoPaciente() {
-    setModalNovoPacienteVisible(true);
   }
 
   // ===== RENDER =====
@@ -573,9 +634,16 @@ export default function App() {
           <Text style={styles.pacienteNome}>
             {pacienteAtual ? pacienteAtual.nome : "Nenhum"}
           </Text>
-          <TouchableOpacity onPress={promptNovoPaciente} style={styles.novoPacienteBtn}>
-            <Text style={styles.novoPacienteText}>+ Novo</Text>
-          </TouchableOpacity>
+          <View style={styles.pacienteActions}>
+            <TouchableOpacity onPress={abrirNovoPaciente} style={styles.novoPacienteBtn}>
+              <Text style={styles.novoPacienteText}>+ Novo</Text>
+            </TouchableOpacity>
+            {pacienteAtual && (
+              <TouchableOpacity onPress={abrirEdicaoPaciente} style={styles.editarPacienteBtn}>
+                <Text style={styles.novoPacienteText}>✏️ Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         
         {pacientes.length > 0 && (
@@ -612,6 +680,28 @@ export default function App() {
         )}
       </View>
 
+      {/* Seletor de Movimento */}
+      <View style={styles.pickerContainer}>
+        <View style={styles.pickerHeader}>
+          <Text style={styles.pickerLabel}>Movimento:</Text>
+          <Text style={styles.pickerArrow}>▼</Text>
+        </View>
+        <Text style={styles.pickerSelected}>
+          {MOVIMENTOS.find(m => m.value === movimento)?.label || movimento}
+        </Text>
+        <Picker
+          selectedValue={movimento}
+          onValueChange={(itemValue) => setMovimento(itemValue)}
+          style={styles.pickerHidden}
+          dropdownIconColor="transparent"
+          mode="dropdown"
+        >
+          {MOVIMENTOS.map((item) => (
+            <Picker.Item key={item.value} label={item.label} value={item.value} />
+          ))}
+        </Picker>
+      </View>
+
       {/* Botões de Controle */}
       {!conectado && !conectando && (
         <TouchableOpacity style={styles.conectarButton} onPress={iniciarBLE}>
@@ -643,25 +733,25 @@ export default function App() {
         </View>
       )}
 
-      {/* Histórico */}
-      <Text style={styles.subtitulo}>
-        Histórico {pacienteAtual ? `- ${pacienteAtual.nome}` : ''}
-      </Text>
-      
-      <FlatList
-        data={historico}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.historicoItem}>
-            <Text style={styles.historicoAngulo}>{item.angulo}°</Text>
-            <Text style={styles.historicoInfo}>
-              {item.tensao} V | {item.dataHora}
-            </Text>
-          </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhuma medição salva</Text>
-        }
+      {/* Botão para abrir Histórico (substitui a lista anterior) */}
+      <TouchableOpacity
+        style={styles.historicoButton}
+        onPress={() => setModalHistoricoVisible(true)}
+        disabled={!pacienteAtual}
+      >
+        <Text style={styles.historicoButtonText}>
+          📋 Ver Histórico {pacienteAtual ? `(${historico.length})` : ''}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Modal de Histórico */}
+      <HistoricoModal
+        visible={modalHistoricoVisible}
+        onClose={() => setModalHistoricoVisible(false)}
+        medicoes={historico}
+        paciente={pacienteAtual}
+        onAtualizarMedicao={atualizarMedicaoHandler}
+        onDeletarMedicao={deletarMedicaoHandler}
       />
 
       {/* Modal de Calibração */}
@@ -672,16 +762,21 @@ export default function App() {
         tensaoAtual={tensaoAtual.toFixed(3)}
       />
       
-      {/* Modal de Novo Paciente */}
-      <NovoPacienteModal
-        visible={modalNovoPacienteVisible}
-        onConfirm={criarNovoPaciente}
-        onCancel={() => setModalNovoPacienteVisible(false)}
+      {/* Modal de Paciente (criação/edição) */}
+      <PacienteFormModal
+        visible={modalPacienteVisible}
+        onClose={() => {
+          setModalPacienteVisible(false);
+          setPacienteEditando(null);
+        }}
+        onSave={handleSalvarPaciente}
+        paciente={pacienteEditando}
       />
     </View>
   );
 }
 
+// ===== ESTILOS =====
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -738,15 +833,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 8
   },
   pacienteNome: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50'
+    color: '#2c3e50',
+    flex: 1
+  },
+  pacienteActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center'
   },
   novoPacienteBtn: {
     backgroundColor: '#3498db',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6
+  },
+  editarPacienteBtn: {
+    backgroundColor: '#f39c12',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6
@@ -798,6 +907,50 @@ const styles = StyleSheet.create({
   ultimaLeitura: {
     fontSize: 12,
     color: '#95a5a6'
+  },
+  pickerContainer: {
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    position: 'relative',
+    minHeight: 70,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    paddingTop: 5,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    fontWeight: '500',
+  },
+  pickerArrow: {
+    fontSize: 16,
+    color: '#2c3e50',
+  },
+  pickerSelected: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    paddingHorizontal: 5,
+    paddingBottom: 8,
+  },
+  pickerHidden: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    width: '100%',
+    height: '100%',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -857,6 +1010,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12
   },
+  // ===== ESTILOS DO BOTÃO HISTÓRICO =====
+  historicoButton: {
+    backgroundColor: '#34495e',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 5,
+  },
+  historicoButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // Restante dos estilos (não utilizados diretamente, mantidos para compatibilidade)
   subtitulo: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -872,10 +1040,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center'
   },
+  historicoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
   historicoAngulo: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e74c3c'
+  },
+  historicoMovimento: {
+    fontSize: 14,
+    color: '#3498db',
+    fontWeight: '500'
   },
   historicoInfo: {
     fontSize: 12,

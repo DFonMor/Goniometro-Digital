@@ -22,3 +22,11 @@ export const CMD_CALIBRATE_ZERO = 0x02;
 export const START_PACKET = [0xB1, 0x0E, 0x02, 0x00, 0xC1];
 export const STOP_PACKET = [0xB1, 0x0E, 0x02, 0x01, 0xC2];
 export const CALIBRATE_PACKET = [0xB1, 0xFF, 0x01, 0x02, 0xB3];
+
+export const MOVIMENTOS = [
+  { label: 'Punho', value: 'punho' },
+  { label: 'Cotovelo', value: 'cotovelo' },
+  { label: 'Joelho', value: 'joelho' },
+  { label: 'Tornozelo', value: 'tornozelo' },
+  { label: 'Outro', value: 'outro' },
+];
