@@ -68,7 +68,7 @@ const char *BT_NAME = "ESP32_ADC";
 #define CHARACTERISTIC_UUID "abcd1234-5678-90ab-cdef-1234567890ab"
 
 float volts = 3.3;
-int resolution = 2 << 12;
+int resolution = 1 << 12;
 
 bool coletando = false;
 bool deviceConnected = false;
@@ -89,7 +89,7 @@ class ServerCallbacks : public BLEServerCallbacks {
     coletando = false;
     Serial.println("BLE desconectado");
 
-    BLEDevice::startAdvertising();
+    pServer->startAdvertising();
   }
 };
 
