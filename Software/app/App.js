@@ -44,7 +44,7 @@ import NovoPacienteModal from './src/components/NovoPacienteModal';
 const USE_MOCK = false; // Mude para true para testes sem hardware
 
 let manager = null;
-const TAMANHO_FILTRO_MEDIANA = 5;
+const TAMANHO_FILTRO_MEDIANA = 12;
 
 // Só importa o BLE real se não estiver usando mock
 if (!USE_MOCK) {
