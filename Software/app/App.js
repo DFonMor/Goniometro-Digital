@@ -1,4 +1,4 @@
-// App.js - Versão com Mock BLE (para testes sem hardware)
+// App.js - Versão Completa com BLE Real e Controles Separados
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -41,7 +41,7 @@ import { MockBLEService } from './src/services/MockBLEService';
 import NovoPacienteModal from './src/components/NovoPacienteModal';
 
 // Flag para usar mock ou BLE real
-const USE_MOCK = true; // 👈 Mude para false para usar BLE real
+const USE_MOCK = false; // Mude para true para testes sem hardware
 
 let manager = null;
 
@@ -67,8 +67,10 @@ export default function App() {
   const [pacienteAtual, setPacienteAtual] = useState(null);
   const [modalCalibracaoVisible, setModalCalibracaoVisible] = useState(false);
   const [tensaoAtual, setTensaoAtual] = useState(0);
-  const [modoMock, setModoMock] = useState(USE_MOCK); // Estado para controle UI
+  const [modoMock, setModoMock] = useState(USE_MOCK);
   const [modalNovoPacienteVisible, setModalNovoPacienteVisible] = useState(false);
+  const [conectandoDispositivo, setConectandoDispositivo] = useState(false);
+  const [dispositivoEncontrado, setDispositivoEncontrado] = useState(false);
 
   const deviceRef = useRef(null);
 
@@ -76,7 +78,6 @@ export default function App() {
   useEffect(() => {
     carregarDadosIniciais();
     
-    // Cleanup ao desmontar
     return () => {
       if (modoMock && MockBLEService.estaSimulando()) {
         MockBLEService.pararSimulacao();
@@ -114,7 +115,7 @@ export default function App() {
     setPacientes([...pacientes, novoPaciente]);
     await selecionarPaciente(novoPaciente.id);
     Alert.alert('Sucesso', `Paciente ${nome} criado!`);
-    setModalNovoPacienteVisible(false); // Fecha o modal
+    setModalNovoPacienteVisible(false);
   }
 
   async function excluirPaciente(id) {
@@ -144,7 +145,7 @@ export default function App() {
     );
   }
 
-  // ===== FUNÇÃO PROCESSAR PACOTE (mesma para mock e BLE real) =====
+  // ===== FUNÇÃO PROCESSAR PACOTE =====
   function processarPacote(base64Value) {
     const result = parsePacket(base64Value);
     
@@ -176,9 +177,7 @@ export default function App() {
     setConectando(true);
     console.log("🔵 Mock: Iniciando simulação do Goniômetro...");
     
-    // Pequeno delay para simular conexão
     setTimeout(() => {
-      // Inicia simulação
       MockBLEService.iniciarSimulacao((dados) => {
         processarPacote(dados.value);
       });
@@ -186,19 +185,32 @@ export default function App() {
       setConectado(true);
       setConectando(false);
       console.log("✅ Mock: Conectado ao Goniômetro (simulado)");
-      
-      // Simula envio de START
       MockBLEService.enviarStart();
     }, 1500);
   }
 
-  async function desconectarBLE_Mock() {
-    console.log("🔴 Mock: Desconectando...");
+  async function enviarStartOnly_Mock() {
+    if (!conectado) return;
+    console.log("📤 Mock: START enviado");
+    await MockBLEService.enviarStart();
+  }
+
+  async function enviarStopOnly_Mock() {
+    if (!conectado) return;
+    console.log("📤 Mock: STOP enviado (dados parados, conexão mantida)");
+    await MockBLEService.enviarStop();
+    Alert.alert('Sucesso', 'Coleta de dados interrompida. Conexão mantida.');
+  }
+
+  async function desconectarCompleto_Mock() {
+    console.log("🔴 Mock: Desconectando completamente...");
+    await MockBLEService.enviarStop();
     MockBLEService.pararSimulacao();
     setConectado(false);
     setAngulo("0.00");
     setTensao("0.00");
     console.log("✅ Mock: Desconectado");
+    Alert.alert('Desconectado', 'Conexão BLE encerrada');
   }
 
   async function enviarCalibracaoBLE_Mock() {
@@ -218,19 +230,44 @@ export default function App() {
     }
     
     setConectando(true);
+    setConectandoDispositivo(false);
+    setDispositivoEncontrado(false);
+    
     console.log("Procurando Goniômetro Digital...");
+
+    manager.stopDeviceScan();
 
     manager.startDeviceScan(null, null, async (error, device) => {
       if (error) {
         console.log("Erro no scan:", error);
-        setConectando(false);
         return;
       }
 
-      if (device?.name === DEVICE_NAME) {
-        console.log("Dispositivo encontrado!");
+      if (conectandoDispositivo || dispositivoEncontrado) {
+        console.log("Ignorando - já conectando/encontrado");
+        return;
+      }
+
+      if (!device?.name) {
+        console.log("Dispositivo sem nome ignorado");
+        return;
+      }
+
+      console.log("Dispositivo encontrado:", device.name);
+
+      if (device.name === DEVICE_NAME) {
+        console.log("Match! Dispositivo alvo encontrado");
+        
+        setDispositivoEncontrado(true);
+        setConectandoDispositivo(true);
+        
         manager.stopDeviceScan();
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await conectar_Real(device);
+        
+        setConectandoDispositivo(false);
       }
     });
 
@@ -238,17 +275,28 @@ export default function App() {
       if (!conectado && conectando) {
         manager.stopDeviceScan();
         setConectando(false);
+        setConectandoDispositivo(false);
+        setDispositivoEncontrado(false);
         Alert.alert('Erro', 'Dispositivo não encontrado. Verifique o BLE.');
       }
-    }, 10000);
+    }, 15000);
   }
 
   async function conectar_Real(device) {
     try {
-      await device.cancelConnection();
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const deviceId = device.id;
+      console.log(`Tentando conectar ao dispositivo: ${deviceId}`);
+      
+      try {
+        await device.cancelConnection();
+      } catch (e) {
+        console.log("Sem conexão ativa para cancelar");
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const connectedDevice = await device.connect({ timeout: 15000 });
+      console.log("Conexão estabelecida com sucesso!");
       
       const isConnected = await connectedDevice.isConnected();
       if (!isConnected) {
@@ -258,9 +306,16 @@ export default function App() {
       deviceRef.current = connectedDevice;
       setConectado(true);
       setConectando(false);
-
+      setConectandoDispositivo(false);
+      
+      console.log("Conectado ao Goniômetro!");
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       await connectedDevice.discoverAllServicesAndCharacteristics();
-      await enviarStart_Real(connectedDevice);
+      console.log("Serviços descobertos");
+      
+      await enviarStartOnly_Real();
 
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
@@ -277,49 +332,70 @@ export default function App() {
       );
 
     } catch (err) {
-      console.log("Erro na conexão:", err);
+      console.log("Erro detalhado na conexão:", err);
       setConectando(false);
-      Alert.alert("Erro BLE", "Não foi possível conectar ao dispositivo.");
+      setConectandoDispositivo(false);
+      setDispositivoEncontrado(false);
+      Alert.alert("Erro BLE", `Erro: ${err.message || "Não foi possível conectar"}`);
     }
   }
 
-  async function desconectarBLE_Real() {
-    if (deviceRef.current) {
-      await enviarStop_Real(deviceRef.current);
-      await deviceRef.current.cancelConnection();
-      deviceRef.current = null;
-      setConectado(false);
-      console.log("Desconectado");
+  // Apenas envia START (mantém conexão)
+  async function enviarStartOnly_Real() {
+    if (!deviceRef.current || !conectado) {
+      console.log("Não é possível enviar START: dispositivo não conectado");
+      return;
     }
-  }
-
-  async function enviarStart_Real(device) {
+    
     try {
       const bytes = Uint8Array.from(START_PACKET);
       const base64 = Buffer.from(bytes).toString('base64');
-      await device.writeCharacteristicWithResponseForService(
+      await deviceRef.current.writeCharacteristicWithResponseForService(
         SERVICE_UUID,
         CHARACTERISTIC_UUID,
         base64
       );
-      console.log("START enviado");
+      console.log("START enviado (retomando dados)");
     } catch (err) {
       console.log("Erro ao enviar START:", err);
     }
   }
 
-  async function enviarStop_Real(device) {
+  // Apenas envia STOP (mantém conexão)
+  async function enviarStopOnly_Real() {
+    if (!deviceRef.current || !conectado) {
+      console.log("Não é possível enviar STOP: dispositivo não conectado");
+      return;
+    }
+    
     try {
       const bytes = Uint8Array.from(STOP_PACKET);
       const base64 = Buffer.from(bytes).toString('base64');
-      await device.writeCharacteristicWithResponseForService(
+      await deviceRef.current.writeCharacteristicWithResponseForService(
         SERVICE_UUID,
         CHARACTERISTIC_UUID,
         base64
       );
-      console.log("STOP enviado");
+      console.log("STOP enviado (dados parados, mas conexão mantida)");
+      Alert.alert('Sucesso', 'Coleta de dados interrompida. Conexão mantida.');
     } catch (err) {
       console.log("Erro ao enviar STOP:", err);
+      Alert.alert('Erro', 'Não foi possível enviar comando STOP');
+    }
+  }
+
+  // Desconecta completamente (encerra conexão BLE)
+  async function desconectarCompleto_Real() {
+    if (deviceRef.current) {
+      console.log("Desconectando completamente do dispositivo...");
+      await enviarStopOnly_Real();
+      await deviceRef.current.cancelConnection();
+      deviceRef.current = null;
+      setConectado(false);
+      setAngulo("0.00");
+      setTensao("0.00");
+      console.log("Desconectado completamente");
+      Alert.alert('Desconectado', 'Conexão BLE encerrada');
     }
   }
 
@@ -343,7 +419,7 @@ export default function App() {
     }
   }
 
-  // ===== FUNÇÕES GENÉRICAS (chamam mock ou real) =====
+  // ===== FUNÇÕES GENÉRICAS =====
   function iniciarBLE() {
     if (modoMock) {
       iniciarBLE_Mock();
@@ -352,11 +428,27 @@ export default function App() {
     }
   }
 
-  function desconectarBLE() {
+  function enviarStartOnly() {
     if (modoMock) {
-      desconectarBLE_Mock();
+      enviarStartOnly_Mock();
     } else {
-      desconectarBLE_Real();
+      enviarStartOnly_Real();
+    }
+  }
+
+  function enviarStopOnly() {
+    if (modoMock) {
+      enviarStopOnly_Mock();
+    } else {
+      enviarStopOnly_Real();
+    }
+  }
+
+  function desconectarCompleto() {
+    if (modoMock) {
+      desconectarCompleto_Mock();
+    } else {
+      desconectarCompleto_Real();
     }
   }
 
@@ -411,9 +503,9 @@ export default function App() {
   }
 
   // ===== NOVO PACIENTE =====
-function promptNovoPaciente() {
-  setModalNovoPacienteVisible(true);
-}
+  function promptNovoPaciente() {
+    setModalNovoPacienteVisible(true);
+  }
 
   // ===== RENDER =====
   return (
@@ -421,16 +513,13 @@ function promptNovoPaciente() {
       <Text style={styles.titulo}>Goniômetro Digital</Text>
 
       {/* Indicador de modo Mock */}
-      <View style={styles.mockIndicator}>
-        <Text style={styles.mockText}>
-          🧪 MODO {modoMock ? 'SIMULAÇÃO' : 'BLE REAL'}
-        </Text>
-        {!modoMock && (
-          <Text style={styles.mockWarning}>
-            (requer ESP32 conectado)
+      {modoMock && (
+        <View style={styles.mockIndicator}>
+          <Text style={styles.mockText}>
+            🧪 MODO SIMULAÇÃO
           </Text>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Status BLE */}
       <Text style={styles.status}>
@@ -490,22 +579,30 @@ function promptNovoPaciente() {
       {/* Botões de Controle */}
       {!conectado && !conectando && (
         <TouchableOpacity style={styles.conectarButton} onPress={iniciarBLE}>
-          <Text style={styles.buttonText}>Conectar</Text>
+          <Text style={styles.buttonText}>🔌 Conectar</Text>
         </TouchableOpacity>
       )}
       
       {conectado && (
         <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.startButton} onPress={enviarStartOnly}>
+            <Text style={styles.buttonText}>▶ Iniciar</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.stopButton} onPress={enviarStopOnly}>
+            <Text style={styles.buttonText}>⏹ Parar</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity style={styles.salvarButton} onPress={salvarMedicao}>
             <Text style={styles.buttonText}>💾 Salvar</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.calibrarButton} onPress={iniciarCalibracao}>
-            <Text style={styles.buttonText}>🎯 Calibrar 0°</Text>
+            <Text style={styles.buttonText}>🎯 Calibrar</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.stopButton} onPress={desconectarBLE}>
-            <Text style={styles.buttonText}>⏹ Parar</Text>
+          <TouchableOpacity style={styles.desconectarButton} onPress={desconectarCompleto}>
+            <Text style={styles.buttonText}>🔌 Sair</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -538,7 +635,8 @@ function promptNovoPaciente() {
         onCancel={cancelarCalibracao}
         tensaoAtual={tensaoAtual.toFixed(3)}
       />
-      {/* NOVO: Modal de Novo Paciente */}
+      
+      {/* Modal de Novo Paciente */}
       <NovoPacienteModal
         visible={modalNovoPacienteVisible}
         onConfirm={criarNovoPaciente}
@@ -668,7 +766,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20
+    marginBottom: 20,
+    flexWrap: 'wrap'
   },
   conectarButton: {
     backgroundColor: '#3498db',
@@ -677,33 +776,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20
   },
-  salvarButton: {
-    backgroundColor: '#27ae60',
-    padding: 12,
+  startButton: {
+    backgroundColor: '#2ecc71',
+    padding: 10,
     borderRadius: 8,
     flex: 1,
-    marginHorizontal: 5,
-    alignItems: 'center'
-  },
-  calibrarButton: {
-    backgroundColor: '#9b59b6',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 3,
     alignItems: 'center'
   },
   stopButton: {
     backgroundColor: '#e74c3c',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 3,
+    alignItems: 'center'
+  },
+  salvarButton: {
+    backgroundColor: '#27ae60',
+    padding: 10,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 3,
+    alignItems: 'center'
+  },
+  calibrarButton: {
+    backgroundColor: '#9b59b6',
+    padding: 10,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 3,
+    alignItems: 'center'
+  },
+  desconectarButton: {
+    backgroundColor: '#e67e22',
+    padding: 10,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 3,
     alignItems: 'center'
   },
   buttonText: {
     color: '#fff',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: 12
   },
   subtitulo: {
     fontSize: 20,
