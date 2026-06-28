@@ -21,7 +21,7 @@ class ConversionService {
   }
 
   converterTensaoParaAngulo(tensao) {
-    return  265* (tensao - this.tensaoZero);
+    return  163.3* (tensao - this.tensaoZero);
   }
 }
 
