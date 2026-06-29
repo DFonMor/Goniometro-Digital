@@ -50,7 +50,7 @@ import HistoricoModal from './src/components/HistoricoModal'; // <-- NOVO
 const USE_MOCK = false; // <-- AGORA true para testes
 
 let manager = null;
-const TAMANHO_FILTRO_MEDIANA = 12;
+const TAMANHO_FILTRO_MEDIANA = 15;
 
 // Só importa o BLE real se não estiver usando mock
 if (!USE_MOCK) {
